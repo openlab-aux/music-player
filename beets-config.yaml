@@ -3,6 +3,8 @@ library:   /data/music/library.db
 import:
   move: yes
   languages: [ "en", "de", "jp" ]
+none_rec_action: skip
+blblblblb: true
 
 per_disc_numbering: yes
 paths:
