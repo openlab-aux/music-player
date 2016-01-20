@@ -1,0 +1,13 @@
+directory: /data/music/sorted
+library:   /data/music/library.db
+import:
+  move: yes
+  languages: [ "en", "de", "jp" ]
+
+per_disc_numbering: yes
+paths:
+  default: $albumartist/$album%aunique{}/$disc-$track $title
+  singleton: Non-Album/$artist/$title
+  comp: Compilations/$album%aunique{}/$disc-$track $title
+
+plugins: embedart ftintitle lyrics mbsync #replaygain fetchart (requests is missing)

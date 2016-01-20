@@ -1,0 +1,4 @@
+Neue Musik in ./unsorted.
+
+Neue Musik taggen mit:
+beet -c ./config.yaml import unsorted
