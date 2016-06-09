@@ -1,0 +1,10 @@
+[Unit]
+Description=Scan local mopidy database timer
+
+[Timer]
+# every 15 minutes
+OnCalendar=*:0/15
+Unit=mopidy-local-scan.service
+
+[Install]
+WantedBy=timers.target

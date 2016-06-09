@@ -1,0 +1,211 @@
+#+TITLE: Setting up mopidy for debian jessie
+
+We wanted to get mopidy running with a web interface, a music database streamed
+via NFS, pulseaudio and an mpd server.
+
+* server
+  :PROPERTIES:
+  :dir:      /scp:root@172.16.16.120:
+  :END:
+
+** setup
+
+*** nfs
+
+ First we mounted the already existing nfs share by adding it to =/etc/fstab=
+  
+  #+BEGIN_SRC sh :results scalar
+  mkdir -p /data
+  cat /etc/fstab
+  #+END_SRC
+
+  #+RESULTS:
+  : ftp.openlab.lan:/data/upload  /data  nfs  defaults,rw
+
+  Of course it’s necessary to install nfs first
+
+  #+BEGIN_SRC sh 
+  apt-get install nfs-common -y
+  #+END_SRC
+
+  and remount
+
+  #+BEGIN_SRC sh
+  mount -a
+  #+END_SRC
+
+
+** mopidy
+
+  With the data mounted, we can set up mopidy.
+
+  The web interface and mpd modules are enabled by default.
+  So first let’s install it:
+
+  #+BEGIN_SRC sh :results scalar
+  # add apt repository
+  apt-get install curl -y
+  curl https://apt.mopidy.com/mopidy.gpg | apt-key add - \
+  && curl https://apt.mopidy.com/jessie.list > /etc/apt/sources.list.d/mopidy.list \
+  && apt-get update \
+  && apt-get install mopidy -y
+  #+END_SRC
+
+  And setup a basic config file by changing the paths to our nfs share:
+
+  #+BEGIN_SRC conf :tangle ./mopidy.conf
+  [core]
+  cache_dir = /data/music/.mopidy/cache
+  config_dir = /etc/mopidy
+  data_dir = /data/music/.mopidy
+
+  [logging]
+  config_file = /etc/mopidy/logging.conf
+  debug_file = /data/music/.mopidy/mopidy-debug.log
+
+  [local]
+  data_dir = /data/music/.mopidy
+  media_dir = /data/music/
+
+  [m3u]
+  playlists_dir = /data/music/playlists
+
+  [mpd]
+  enabled = true
+  hostname = ::
+
+  [http]
+  enabled = true
+  hostname = ::
+
+  #+END_SRC
+
+  A line in the default logging file needs to be adjusted, too:
+
+  #+BEGIN_SRC conf
+  args = ('/data/music/.mopidy/mopidy.log',)
+  #+END_SRC
+
+  set up the folder and start mopidy!
+
+  #+BEGIN_SRC sh :results scalar
+  mkdir -p /data/music/.mopidy/playlists
+  systemctl start mopidy
+  systemctl enable mopidy
+  systemctl status mopidy
+  #+END_SRC
+
+  #+RESULTS:
+  #+begin_example
+  [1;32m*[0m mopidy.service - Mopidy music server
+     Loaded: loaded (/lib/systemd/system/mopidy.service; disabled)
+     Active: [1;32mactive (running)[0m since Wed 2016-06-08 20:10:25 CEST; 44s ago
+   Main PID: 5461 (mopidy)
+     CGroup: /system.slice/mopidy.service
+             `-5461 /usr/bin/python /usr/bin/mopidy --config /usr/share/mopidy/...
+
+  Jun 08 20:10:27 mopidy mopidy[5461]: INFO     Starting Mopidy audio
+  Jun 08 20:10:27 mopidy mopidy[5461]: INFO     Starting Mopidy backends: Str...nd
+  Jun 08 20:10:27 mopidy mopidy[5461]: INFO     No local library metadata cac...e.
+  Jun 08 20:10:27 mopidy mopidy[5461]: INFO     Loaded 0 local tracks using json
+  Jun 08 20:10:27 mopidy mopidy[5461]: INFO     Starting Mopidy core
+  Jun 08 20:10:27 mopidy mopidy[5461]: INFO     Audio output set to "autoaudi...k"
+  Jun 08 20:10:27 mopidy mopidy[5461]: INFO     Starting Mopidy frontends: Mp...nd
+  Jun 08 20:10:27 mopidy mopidy[5461]: INFO     MPD server running at [::ffff...00
+  Jun 08 20:10:27 mopidy mopidy[5461]: INFO     Starting GLib mainloop
+  Jun 08 20:10:27 mopidy mopidy[5461]: INFO     HTTP server running at [::fff...80
+  Jun 08 20:10:40 mopidy systemd[1]: Started Mopidy music server.
+  Jun 08 20:11:09 mopidy systemd[1]: Started Mopidy music server.
+  Hint: Some lines were ellipsized, use -l to show in full.
+#+end_example
+
+  Congrats, you have a mopidy with mpd backend running! It also exposes an HTTP
+  api at port 6680
+
+** Scanning music files
+
+   Now we need to scan music files.
+   Since we run stuff as root, the =mopidyctl= command can be used to send
+   commands to the mopidy user.
+   To start indexing music files, execute:
+
+   #+BEGIN_SRC sh
+   mopidyctl local scan
+   #+END_SRC
+
+** additional plugins
+
+   e.g. webinterfaces are managed as pip packages for the most part.
+   So we need pip and install a few python packages globally. Fun!
+
+   #+BEGIN_SRC sh
+   apt-get install python-pip -y
+   pip install Mopidy-Mobile
+   systemctl restart mopidy
+   #+END_SRC
+
+   #+RESULTS:
+
+   
+   now there is a http webinterface at 6680.
+
+** Regularly scanning of music files
+
+   Create a systemd timer (& .service file) to regularly run the music library
+   scanning, put them into =/etc/systemd/system/=.
+
+   #+BEGIN_SRC conf :tangle ./mopidy-local-scan.service
+   [Unit]
+   Description=Scan local mopidy database
+   
+   [Service]
+   ExecStart=/usr/sbin/mopidyctl local scan
+
+   [Install]
+   WantedBy=basic.target
+   #+END_SRC
+
+   #+BEGIN_SRC conf :tangle ./mopidy-local-scan.timer
+   [Unit]
+   Description=Scan local mopidy database timer
+
+   [Timer]
+   # every 15 minutes
+   OnCalendar=*:0/15
+   Unit=mopidy-local-scan.service
+
+   [Install]
+   WantedBy=timers.target
+   #+END_SRC
+
+   We should also do a full rescan once in a while. Create two more files like
+   the ones above, but change =OnCalendar= to =weekly=.
+
+   #+BEGIN_SRC sh :results scalar
+   systemctl daemon-reload
+   systemctl start mopidy-local-scan.timer
+   systemctl enable mopidy-local-scan.timer
+   systemctl start mopidy-local-rescan.timer
+   systemctl enable mopidy-local-rescan.timer
+   systemctl list-timers
+   #+END_SRC
+
+   #+RESULTS:
+   : NEXT                          LEFT        LAST                          PASSED       UNIT                         ACTIVATES
+   : Thu 2016-06-09 01:45:00 CEST  12min left  Thu 2016-06-09 01:30:13 CEST  2min 29s ago mopidy-local-scan.timer      mopidy-local-scan.service
+   : Mon 2016-06-13 00:00:00 CEST  3 days left n/a                           n/a          mopidy-local-rescan.timer    mopidy-local-rescan.service
+
+   TODO: patch local scanning, so it excludes every file where the mimetype
+   isn’t =audio/*=.
+
+** Doing local file scanning on a different machine
+
+   Actually, we want to run mopidy on an odroid, a device with a rather weak CPU
+   compared to the server the music files are on.
+   The scanning of files can be sped up considerably if done on the server.
+
+   So we set up mopidy *twice*: Once without UI, with a basic configuration and
+   with the systemd library update timers in a VM on the server, and a second
+   instance with all goodies and sound support on the device playing the music.
+   As long as the library storage backends are the same, this works like a charm
+   (in our experience).

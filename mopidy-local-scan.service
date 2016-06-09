@@ -1,0 +1,8 @@
+[Unit]
+Description=Scan local mopidy database
+
+[Service]
+ExecStart=/usr/sbin/mopidyctl local scan
+
+[Install]
+WantedBy=basic.target
