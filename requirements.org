@@ -1,0 +1,30 @@
+* Use Cases
+
+** Play link                                                                      :must:
+** Create & manage Queue                                               :must:
+** Search database                                                     :must:
+** Add audio file to the library & play it directly afterwards       :should:
+** Tag music from musicbrainz (automatically?)                       :should:
+** Stream audio to hi-fi                                             :should:
+** web interface                                                     :should:
+** mpd clients                                                        :could:
+
+* Functionality
+** Pulseaudio
+   direct streaming
+   automatic input change (management of the device)
+
+** mpd-server
+   mpd clients work directly
+   
+** beets
+   tagging (semi-automatic)
+   music database, queryable
+   
+** mpv
+   plays everything (also everything youtube-dl does)
+   also: video
+
+** mopidy
+   emulates mpd
+   can stream from e.g. spotify
