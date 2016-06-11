@@ -5,7 +5,7 @@ via NFS, pulseaudio and an mpd server.
 
 * server
   :PROPERTIES:
-  :dir:      /scp:root@172.16.16.120:
+  :dir:      /scp:root@172.16.16.2:
   :END:
 
 ** setup
@@ -58,6 +58,9 @@ via NFS, pulseaudio and an mpd server.
   cache_dir = /data/music/.mopidy/cache
   config_dir = /etc/mopidy
   data_dir = /data/music/.mopidy
+
+  [file]
+  enabled = false
 
   [logging]
   config_file = /etc/mopidy/logging.conf
@@ -209,3 +212,78 @@ via NFS, pulseaudio and an mpd server.
    instance with all goodies and sound support on the device playing the music.
    As long as the library storage backends are the same, this works like a charm
    (in our experience).
+
+** Setting up alsa sound
+
+   You need a mopidy plugin
+
+   #+BEGIN_SRC sh
+   apt-get install mopidy-alsamixer
+   #+END_SRC
+
+   and edit your alsa sink into the config
+
+   #+BEGIN_SRC conf
+   [alsamixer]
+   card = 1 # in our case, because USB soundcard
+   control = 'Headphone',0
+   #+END_SRC
+
+   where you can find out the controls with
+
+   #+BEGIN_SRC sh :results scalar
+   amixer -c1 # -c<yourcard>
+   #+END_SRC
+
+   #+RESULTS:
+   #+begin_example
+   Simple mixer control 'Headphone',0
+     Capabilities: pvolume pswitch pswitch-joined
+     Playback channels: Front Left - Front Right
+     Limits: Playback 0 - 151
+     Mono:
+     Front Left: Playback 151 [100%] [-0.06dB] [on]
+     Front Right: Playback 151 [100%] [-0.06dB] [on]
+   Simple mixer control 'Mic',0
+     Capabilities: pvolume pvolume-joined cvolume cvolume-joined pswitch pswitch-joined cswitch cswitch-joined
+     Playback channels: Mono
+     Capture channels: Mono
+     Limits: Playback 0 - 32 Capture 0 - 16
+     Mono: Playback 23 [72%] [34.36dB] [off] Capture 0 [0%] [0.00dB] [on]
+   Simple mixer control 'Auto Gain Control',0
+     Capabilities: pswitch pswitch-joined
+     Playback channels: Mono
+     Mono: Playback [on]
+#+end_example
+
+   #+BEGIN_SRC sh
+   systemctl restart mopidy
+   #+END_SRC
+
+   #+RESULTS:
+
+** Reverse proxy to port 80 with nginx
+   
+   All the way! Install nginx, insert the following snippet in the =http {}=
+   block and restart & enable nginx.
+
+   #+BEGIN_SRC conf
+   server {
+     listen 80;
+     server_name mpd.lan;
+
+     location / {
+       proxy_pass http://localhost:6680;
+       # necessary for WebSocket reverse proxying
+       proxy_http_version 1.1;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection "upgrade";
+     }
+   }
+   #+END_SRC
+
+** TODO
+
+   - speed up search (sqlite backend?)
+   - database updates when adding files
+     (https://github.com/emcrisostomo/fswatch)
