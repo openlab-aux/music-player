@@ -8,9 +8,8 @@ via NFS, pulseaudio and an mpd server.
   :dir:      /scp:root@172.16.16.2:
   :END:
 
-** setup
 
-*** nfs
+** nfs
 
  First we mounted the already existing nfs share by adding it to =/etc/fstab=
   
@@ -51,6 +50,13 @@ via NFS, pulseaudio and an mpd server.
   && apt-get install mopidy -y
   #+END_SRC
 
+  To get a sane storage backend (the default is json files …) we use the sqlite
+  module:
+
+  #+BEGIN_SRC sh
+  apt-get install mopidy-local-sqlite
+  #+END_SRC
+
   And setup a basic config file by changing the paths to our nfs share:
 
   #+BEGIN_SRC conf :tangle ./mopidy.conf
@@ -67,6 +73,8 @@ via NFS, pulseaudio and an mpd server.
   debug_file = /data/music/.mopidy/mopidy-debug.log
 
   [local]
+  library = sqlite
+  scan_flush_threshold = 100
   data_dir = /data/music/.mopidy
   media_dir = /data/music/
 
@@ -130,6 +138,11 @@ via NFS, pulseaudio and an mpd server.
    Now we need to scan music files.
    Since we run stuff as root, the =mopidyctl= command can be used to send
    commands to the mopidy user.
+
+
+   and insert it into the config:
+   
+   
    To start indexing music files, execute:
 
    #+BEGIN_SRC sh
@@ -283,7 +296,5 @@ via NFS, pulseaudio and an mpd server.
    #+END_SRC
 
 ** TODO
-
-   - speed up search (sqlite backend?)
    - database updates when adding files
      (https://github.com/emcrisostomo/fswatch)
