@@ -97,6 +97,10 @@ via NFS, pulseaudio and an mpd server.
   args = ('/data/music/.mopidy/mopidy.log',)
   #+END_SRC
 
+  Since we depend on =/data= being mounted first, we can tell systemd that, by
+  adding =Requires=data.mount= to the =[Unit]= section in
+  =/lib/systemd/system/mopidy.service=.
+
   set up the folder and start mopidy!
 
   #+BEGIN_SRC sh :results scalar
@@ -173,6 +177,7 @@ via NFS, pulseaudio and an mpd server.
    #+BEGIN_SRC conf :tangle ./mopidy-local-scan.service
    [Unit]
    Description=Scan local mopidy database
+   Requires=data.mount
    
    [Service]
    ExecStart=/usr/sbin/mopidyctl local scan
@@ -196,6 +201,8 @@ via NFS, pulseaudio and an mpd server.
 
    We should also do a full rescan once in a while. Create two more files like
    the ones above, but change =OnCalendar= to =weekly=.
+   Since we want =/data= to be mounted like with mopidy, we introduce it as
+   dependency as well (this screams for a turing-complete meta config lang …).
 
    #+BEGIN_SRC sh :results scalar
    systemctl daemon-reload
@@ -298,3 +305,5 @@ via NFS, pulseaudio and an mpd server.
 ** TODO
    - database updates when adding files
      (https://github.com/emcrisostomo/fswatch)
+
+   
